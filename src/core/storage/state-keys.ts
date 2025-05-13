@@ -19,6 +19,7 @@ export type SecretKey =
 	| "asksageApiKey"
 	| "xaiApiKey"
 	| "sambanovaApiKey"
+	| "makehubApiKey"
 
 export type GlobalStateKey =
 	| "apiProvider"
@@ -81,5 +82,8 @@ export type GlobalStateKey =
 	| "favoritedModelIds"
 	| "requestTimeoutMs"
 	| "shellIntegrationTimeout"
+	| "makehubModelId"
+	| "makehubModelInfo"
+	| "makehubPerfRatio"
 
 export type LocalStateKey = "localClineRulesToggles"

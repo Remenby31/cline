@@ -131,6 +131,10 @@ export async function getAllExtensionState(context: vscode.ExtensionContext) {
 		globalClineRulesToggles,
 		requestTimeoutMs,
 		shellIntegrationTimeout,
+		makehubApiKey,
+		makehubModelId,
+		makehubModelInfo,
+		makehubPerfRatio,
 	] = await Promise.all([
 		getGlobalState(context, "apiProvider") as Promise<ApiProvider | undefined>,
 		getGlobalState(context, "apiModelId") as Promise<string | undefined>,
@@ -210,6 +214,10 @@ export async function getAllExtensionState(context: vscode.ExtensionContext) {
 		getGlobalState(context, "globalClineRulesToggles") as Promise<ClineRulesToggles | undefined>,
 		getGlobalState(context, "requestTimeoutMs") as Promise<number | undefined>,
 		getGlobalState(context, "shellIntegrationTimeout") as Promise<number | undefined>,
+		getSecret(context, "makehubApiKey") as Promise<string | undefined>,
+		getGlobalState(context, "makehubModelId") as Promise<string | undefined>,
+		getGlobalState(context, "makehubModelInfo") as Promise<ModelInfo | undefined>,
+		getGlobalState(context, "makehubPerfRatio") as Promise<number | undefined>,
 	])
 
 	let apiProvider: ApiProvider
@@ -312,6 +320,10 @@ export async function getAllExtensionState(context: vscode.ExtensionContext) {
 			sambanovaApiKey,
 			favoritedModelIds,
 			requestTimeoutMs,
+			makehubApiKey,
+			makehubModelId,
+			makehubModelInfo,
+			makehubPerfRatio,
 		},
 		lastShownAnnouncementId,
 		customInstructions,
@@ -457,6 +469,10 @@ export async function updateApiConfiguration(context: vscode.ExtensionContext, a
 	await storeSecret(context, "sambanovaApiKey", sambanovaApiKey)
 	await updateGlobalState(context, "favoritedModelIds", favoritedModelIds)
 	await updateGlobalState(context, "requestTimeoutMs", apiConfiguration.requestTimeoutMs)
+	await storeSecret(context, "makehubApiKey", apiConfiguration.makehubApiKey)
+	await updateGlobalState(context, "makehubModelId", apiConfiguration.makehubModelId)
+	await updateGlobalState(context, "makehubModelInfo", apiConfiguration.makehubModelInfo)
+	await updateGlobalState(context, "makehubPerfRatio", apiConfiguration.makehubPerfRatio)
 }
 
 export async function resetExtensionState(context: vscode.ExtensionContext) {
@@ -483,6 +499,7 @@ export async function resetExtensionState(context: vscode.ExtensionContext) {
 		"asksageApiKey",
 		"xaiApiKey",
 		"sambanovaApiKey",
+		"makehubApiKey",
 	]
 	for (const key of secretKeys) {
 		await storeSecret(context, key, undefined)
