@@ -16,6 +16,7 @@ export const GlobalFileNames = {
 	makehubModels: "makehub_models.json",
 	mcpSettings: "cline_mcp_settings.json",
 	clineRules: ".clinerules",
+	workflows: ".clinerules/workflows",
 	cursorRulesDir: ".cursor/rules",
 	cursorRulesFile: ".cursorrules",
 	windsurfRules: ".windsurfrules",
