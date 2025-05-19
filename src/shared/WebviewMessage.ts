@@ -28,6 +28,7 @@ export interface WebviewMessage {
 		| "showChatView"
 		| "refreshOpenRouterModels"
 		| "refreshRequestyModels"
+		| "refreshMakehubModels"
 		| "refreshOpenAiModels"
 		| "refreshClineRules"
 		| "openMcpSettings"

@@ -10,6 +10,7 @@ import {
 } from "@vscode/webview-ui-toolkit/react"
 import { Fragment, memo, useCallback, useEffect, useMemo, useState } from "react"
 import ThinkingBudgetSlider from "./ThinkingBudgetSlider"
+import MakeHubPerfRatioSlider from "./MakeHubPerfRatioSlider"
 import { useEvent, useInterval } from "react-use"
 import styled from "styled-components"
 import * as vscodemodels from "vscode"
@@ -51,6 +52,8 @@ import {
 	doubaoModels,
 	doubaoDefaultModelId,
 	liteLlmModelInfoSaneDefaults,
+	makehubDefaultModelId,
+	makehubDefaultModelInfo,
 } from "@shared/api"
 import { ExtensionMessage } from "@shared/ExtensionMessage"
 import { useExtensionState } from "@/context/ExtensionStateContext"
@@ -60,6 +63,7 @@ import VSCodeButtonLink from "@/components/common/VSCodeButtonLink"
 import OpenRouterModelPicker, { ModelDescriptionMarkdown, OPENROUTER_MODEL_PICKER_Z_INDEX } from "./OpenRouterModelPicker"
 import { ClineAccountInfoCard } from "./ClineAccountInfoCard"
 import RequestyModelPicker from "./RequestyModelPicker"
+import MakehubModelPicker from "./MakehubModelPicker"
 import { useOpenRouterKeyInfo } from "../ui/hooks/useOpenRouterKeyInfo"
 
 interface ApiOptionsProps {
@@ -286,6 +290,7 @@ const ApiOptions = ({
 					<VSCodeOption value="asksage">AskSage</VSCodeOption>
 					<VSCodeOption value="xai">xAI</VSCodeOption>
 					<VSCodeOption value="sambanova">SambaNova</VSCodeOption>
+					<VSCodeOption value="makehub">MakeHub</VSCodeOption>
 				</VSCodeDropdown>
 			</DropdownContainer>
 
@@ -1702,6 +1707,37 @@ const ApiOptions = ({
 				</div>
 			)}
 
+			{selectedProvider === "makehub" && (
+				<div>
+					<VSCodeTextField
+						value={apiConfiguration?.makehubApiKey || ""}
+						style={{ width: "100%" }}
+						type="password"
+						onInput={handleInputChange("makehubApiKey")}
+						placeholder="Enter API Key...">
+						<span style={{ fontWeight: 500 }}>MakeHub API Key</span>
+					</VSCodeTextField>
+					<p
+						style={{
+							fontSize: "12px",
+							marginTop: 3,
+							color: "var(--vscode-descriptionForeground)",
+						}}>
+						This key is stored locally and only used for API requests from this extension.
+						{!apiConfiguration?.makehubApiKey && (
+							<VSCodeLink
+								href="https://makehub.ai/api-keys"
+								style={{
+									display: "inline",
+									fontSize: "inherit",
+								}}>
+								Get a MakeHub API key here.
+							</VSCodeLink>
+						)}
+					</p>
+				</div>
+			)}
+
 			{apiErrorMessage && (
 				<p
 					style={{
@@ -1789,6 +1825,21 @@ const ApiOptions = ({
 				</>
 			)}
 
+			{selectedProvider === "makehub" && showModelOptions && (
+				<>
+					<MakeHubPerfRatioSlider
+						apiConfiguration={apiConfiguration}
+						onChange={(value) => {
+							handleInputChange("makehubPerfRatio")({
+								target: { value },
+							})
+						}}
+					/>
+
+					<MakehubModelPicker isPopup={isPopup} />
+				</>
+			)}
+
 			{selectedProvider !== "openrouter" &&
 				selectedProvider !== "cline" &&
 				selectedProvider !== "openai" &&
@@ -1798,6 +1849,7 @@ const ApiOptions = ({
 				selectedProvider !== "litellm" &&
 				selectedProvider !== "requesty" &&
 				selectedProvider !== "bedrock" &&
+				selectedProvider !== "makehub" &&
 				showModelOptions && (
 					<>
 						<DropdownContainer zIndex={DROPDOWN_Z_INDEX - 2} className="dropdown-container">
@@ -2190,6 +2242,12 @@ export function normalizeApiConfiguration(apiConfiguration?: ApiConfiguration): 
 				selectedProvider: provider,
 				selectedModelId: apiConfiguration?.requestyModelId || requestyDefaultModelId,
 				selectedModelInfo: apiConfiguration?.requestyModelInfo || requestyDefaultModelInfo,
+			}
+		case "makehub":
+			return {
+				selectedProvider: provider,
+				selectedModelId: apiConfiguration?.makehubModelId || makehubDefaultModelId,
+				selectedModelInfo: apiConfiguration?.makehubModelInfo || makehubDefaultModelInfo,
 			}
 		case "cline":
 			return {

@@ -9,6 +9,7 @@ import * as path from "path"
 import * as vscode from "vscode"
 import { handleGrpcRequest } from "./grpc-handler"
 import { buildApiHandler } from "@api/index"
+import { MakehubHandler } from "@api/providers/makehub"
 import { cleanupLegacyCheckpoints } from "@integrations/checkpoints/CheckpointMigration"
 import { downloadTask } from "@integrations/misc/export-markdown"
 import { fetchOpenGraphData } from "@integrations/misc/link-preview"
@@ -373,6 +374,9 @@ export class Controller {
 				const openAiModels = await this.getOpenAiModels(apiConfiguration.openAiBaseUrl, apiConfiguration.openAiApiKey)
 				this.postMessageToWebview({ type: "openAiModels", openAiModels })
 				break
+			case "refreshMakehubModels":
+				await this.refreshMakehubModels()
+				break
 			case "refreshClineRules":
 				await refreshClineRulesToggles(this.context, cwd)
 				await this.postStateToWebview()
@@ -692,11 +696,13 @@ export class Controller {
 			case "toggleFavoriteModel": {
 				if (message.modelId) {
 					const { apiConfiguration } = await getAllExtensionState(this.context)
-					const favoritedModelIds = apiConfiguration.favoritedModelIds || []
+					const favoritedModelIds: string[] = Array.isArray(apiConfiguration.favoritedModelIds)
+						? apiConfiguration.favoritedModelIds
+						: []
 
 					// Toggle favorite status
 					const updatedFavorites = favoritedModelIds.includes(message.modelId)
-						? favoritedModelIds.filter((id) => id !== message.modelId)
+						? favoritedModelIds.filter((id: string) => id !== message.modelId) // Explicitly type 'id'
 						: [...favoritedModelIds, message.modelId]
 
 					await updateGlobalState(this.context, "favoritedModelIds", updatedFavorites)
@@ -1488,6 +1494,101 @@ Here is the project's README to help you get started:\n\n${mcpDetails.readmeCont
 			requestyModels: models,
 		})
 		return models
+	}
+
+	async refreshMakehubModels() {
+		try {
+			const apiKey = await getSecret(this.context, "makehubApiKey")
+			if (!apiKey) {
+				return {}
+			}
+
+			// Faire la requête à l'API MakeHub directement depuis controller/index.ts
+			const response = await axios.get("https://api.makehub.ai/v1/models?unique_model_id=true", {
+				headers: {
+					Authorization: `Bearer ${apiKey}`,
+					"HTTP-Referer": "https://cline.bot",
+					"X-Title": "Cline",
+				},
+			})
+
+			// Filtre les modèles pour ne garder que ceux avec assistant_ready=true
+			const filteredModels = response.data.data.filter((model: any) => model.assistant_ready)
+
+			// Convertir le tableau en objet clé-valeur avec des informations complètes
+			const models: Record<string, ModelInfo> = filteredModels.reduce((acc: Record<string, ModelInfo>, model: any) => {
+				// Créer un ModelInfo complet avec des valeurs par défaut pour les champs manquants
+				const modelInfo: ModelInfo = {
+					maxTokens: model.max_tokens || 8192,
+					contextWindow: model.context,
+					supportsImages: model.supports_images ?? model.capabilities?.image_input ?? false,
+					supportsPromptCache: model.supports_prompt_cache ?? false,
+					inputPrice: model.price_per_input_token,
+					outputPrice: model.price_per_output_token,
+					description: model.model_name,
+					cacheWritesPrice: model.supports_prompt_cache ? model.cache_writes_price : undefined,
+					cacheReadsPrice: model.supports_prompt_cache ? model.cache_reads_price : undefined,
+					displayName: model.display_name || model.model_id, // Utiliser display_name s'il existe, sinon model_id
+				}
+
+				// Ajouter la configuration de raisonnement si disponible
+				if (model.thinking_config) {
+					modelInfo.thinkingConfig = {
+						maxBudget: model.thinking_config.max_budget,
+						outputPrice: model.thinking_config.output_price,
+					}
+				}
+
+				// Ajouter les tiers si disponibles
+				if (model.tiers && model.tiers.length > 0) {
+					modelInfo.tiers = model.tiers.map((tier: any) => ({
+						contextWindow: tier.context_window,
+						inputPrice: tier.input_price,
+						outputPrice: tier.output_price,
+						cacheWritesPrice: tier.cache_writes_price,
+						cacheReadsPrice: tier.cache_reads_price,
+					}))
+				}
+
+				return {
+					...acc,
+					[model.model_id]: modelInfo,
+				}
+			}, {})
+
+			// Sauvegarde les modèles dans un fichier
+			const settingsDir = await ensureSettingsDirectoryExists(this.context)
+			const modelsPath = path.join(settingsDir, GlobalFileNames.makehubModels)
+			await fs.writeFile(modelsPath, JSON.stringify(models))
+
+			// Envoie les modèles au frontend
+			await this.postMessageToWebview({
+				type: "makehubModels",
+				makehubModels: models,
+			})
+
+			return models
+		} catch (error) {
+			console.error("Error retrieving MakeHub models:", error)
+			// Essayer de lire depuis le cache en cas d'échec
+			try {
+				const settingsDir = await ensureSettingsDirectoryExists(this.context)
+				const modelsPath = path.join(settingsDir, GlobalFileNames.makehubModels)
+				if (await fileExistsAtPath(modelsPath)) {
+					const fileContents = await fs.readFile(modelsPath, "utf8")
+					const models = JSON.parse(fileContents)
+					await this.postMessageToWebview({
+						type: "makehubModels",
+						makehubModels: models,
+					})
+					return models
+				}
+			} catch (cacheError) {
+				console.error("Error reading MakeHub models cache:", cacheError)
+			}
+		}
+
+		return {}
 	}
 
 	// Context menus and code actions
